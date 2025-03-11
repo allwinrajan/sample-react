@@ -15,16 +15,16 @@ phases:
 
   build:
     commands:
-      - echo Building Docker image...
+      - echo "Building Docker image..."
       - docker build -t $IMAGE_NAME .
-      - echo Tagging Docker image...
+      - echo "Tagging Docker image..."
       - docker tag $IMAGE_NAME:latest $ECR_REGISTRY/$IMAGE_NAME:latest
 
   post_build:
     commands:
-      - echo Pushing Docker image to ECR...
+      - echo "Pushing Docker image to ECR..."
       - docker push $ECR_REGISTRY/$IMAGE_NAME:latest
-      - echo Build and push completed successfully!
+      - echo "Build and push completed successfully!"
 
 artifacts:
   files:
