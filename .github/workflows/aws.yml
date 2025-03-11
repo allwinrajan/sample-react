@@ -1,50 +1,51 @@
-name: Build and Push to Amazon ECR
+name: Deploy to Amazon ECS and Docker Hub
 
 on:
   push:
-    branches:
-      - master
+    branches: [ "master" ]
+
+env:
+  AWS_REGION: eu-central-1
+  ECR_REPOSITORY: sample-repo
+
+permissions:
+  contents: read
 
 jobs:
-  build-and-push:
-    name: Build and Push Docker Image
+  deploy:
+    name: Deploy
     runs-on: ubuntu-latest
+    environment: production
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v3
+    - name: Checkout
+      uses: actions/checkout@v4
 
-      - name: Set up AWS credentials
-        uses: aws-actions/configure-aws-credentials@v1
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
-          aws-region: eu-central-1
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v1
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
+        aws-region: eu-central-1
 
-      - name: Login to Amazon ECR
-        id: login-ecr
-        run: |
-          aws ecr get-login-password --region eu-central-1 | docker login --username AWS --password-stdin ${{ secrets.AWS_ECR_REGISTRY }}
+    - name: Login to Amazon ECR
+      id: login-ecr
+      uses: aws-actions/amazon-ecr-login@v1
 
-      - name: Ensure ECR Repository Exists
-        run: |
-          aws ecr describe-repositories --repository-names sample-repo --region eu-central-1 || \
-          aws ecr create-repository --repository-name sample-repo --region eu-central-1
+    - name: Build, tag, and push image to Amazon ECR
+      id: build-image
+      env:
+        ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        # IMAGE_TAG: ${{ github.sha }}
+      run: |
+        # Build the Docker image
+        docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:latest -t $DOCKERHUB_REPOSITORY:latest .
 
-      - name: Set Image Tag
-        run: echo "IMAGE_TAG=$(date +%Y%m%d%H%M%S)" >> $GITHUB_ENV
+        # Push to Amazon ECR
+        docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
 
-      - name: Build and Tag Docker Image
-        run: |
-          docker build -t my-react-app:$IMAGE_TAG .
-          docker tag my-react-app:$IMAGE_TAG ${{ secrets.AWS_ECR_REGISTRY }}/my-react-app:$IMAGE_TAG
-          docker tag my-react-app:$IMAGE_TAG ${{ secrets.AWS_ECR_REGISTRY }}/my-react-app:latest
+        # Push to Docker Hub
+        docker push $DOCKERHUB_REPOSITORY:latest
 
-      - name: Push Docker Image to Amazon ECR
-        run: |
-          docker push ${{ secrets.AWS_ECR_REGISTRY }}/my-react-app:$IMAGE_TAG
-          docker push ${{ secrets.AWS_ECR_REGISTRY }}/my-react-app:latest
-
-      - name: Verify Pushed Image
-        run: aws ecr list-images --repository-name my-react-app --region eu-central-1
+        echo "image=$ECR_REGISTRY/$ECR_REPOSITORY:latest" >> $GITHUB_OUTPUT
