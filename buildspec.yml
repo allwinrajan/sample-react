@@ -4,12 +4,12 @@ env:
   variables:
     AWS_REGION: "eu-central-1"
     IMAGE_NAME: "sample-repo"
+    ECR_REGISTRY: "863518438805.dkr.ecr.eu-central-1.amazonaws.com"
 
 phases:
   pre_build:
     commands:
       - echo "Logging in to Amazon ECR..."
-      - export ECR_REGISTRY=$(aws sts get-caller-identity --query "Account" --output text).dkr.ecr.$AWS_REGION.amazonaws.com
       - aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $ECR_REGISTRY
       - echo "ECR Registry: $ECR_REGISTRY"
 
